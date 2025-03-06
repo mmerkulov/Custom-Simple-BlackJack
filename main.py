@@ -18,6 +18,12 @@ denomination = {'2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, 
                 'Валет': 10, 'Туз': 11}
 
 
+# class Bank:
+#     def __init__(self, balance):
+#         self.player_balance = balance
+#         self.bid_player: int | None = None
+
+
 class Card:
     def __init__(self, suit: str, rank: int):
         self.suit: str = suit
@@ -78,15 +84,19 @@ class Hand:
 
 class Player:
 
-    def __init__(self, name):
-        self.name = name
-        self.hand = Hand()
+    def __init__(self, name: str, balance: int = 0):
+        self.name: str = name
+        self.hand: Hand = Hand()
+        self.player_balance: int = balance
 
     def hit(self, deck: Deck):
         self.hand.get_card(deck.deal_cars())
 
     def stand(self):
         print(f'{self.name} stand with {self.hand.calculate_hand()} points and on hand - {self.hand.cards}.')
+
+    def clear_hand(self):
+        self.hand.cards = []
 
 
 class Dealer(Player):
@@ -105,38 +115,40 @@ class Game:
         self.player: Player = Player(name='Doro')
         self.dealer: Dealer = Dealer()
 
-    def calculate_result(self, sum_player: int, sum_dealer: int) -> int:
-        print(self.dealer)
-        print(f'Счёт игрока - {sum_player}')
-        print(f'Счёт дилера - {sum_dealer}')
-        if sum_player > 21:
+    def calculate_result(self, bid: int) -> None:
+
+        print(f'Счёт игрока - {self.player.hand.value_deck}')
+        print(f'Счёт дилера - {self.dealer.hand.value_deck}')
+        if self.player.hand.value_deck > 21:
             print('Player проиграл, сожалеем.')
-            return 0
-        elif sum_dealer > 21:
+            self.player.player_balance -= bid
+        elif self.dealer.hand.value_deck > 21:
             print('Dealer проиграл, поздравляем с победой.')
-            return 1
-        elif sum_player > sum_dealer:
-            print(f'Player победил, поздравляем, дилер проиграл. Результат: {sum_player} > {sum_dealer}')
-            return 1
-        elif sum_player == sum_dealer:
-            print(f'Ничья! Результат: {sum_player} = {sum_dealer}')
-            return 2
+            self.player.player_balance += bid
+        elif self.player.hand.value_deck > self.dealer.hand.value_deck:
+            print(
+                f'Player победил, поздравляем, дилер проиграл. Результат: {self.player.hand.value_deck} > {self.dealer.hand.value_deck}')
+            self.player.player_balance += bid
+        elif self.player.hand.value_deck == self.dealer.hand.value_deck:
+            print(f'Ничья! Результат: {self.player.hand.value_deck} = {self.dealer.hand.value_deck}')
         else:
             print('Дилер победил! Сожалеем.')
-            return 0
+            self.player.player_balance -= bid
+
+    def check_balance(self, bid: int) -> bool:
+        return True if self.player.player_balance > bid else False
 
     def play_blackjack(self):
         print(f'!!!Black Jack!!!')
 
-        players_bank = float(
-            input('На сколько будете играть? Ввевдите сумму (это общая сумма, которая у вас есть на начало игры) = '))
-
+        self.player.player_balance = int(input('Какой у вас баланс на игру? '))
         is_play_again = True
-        while players_bank > 0 and is_play_again:
+        while self.player.player_balance > 0 and is_play_again:
             bid = int(input('Введите ставку игры - '))
+
             # Проверка, что игрок может играть на ставку:
-            if bid >= players_bank:
-                print('Так нельзя делать. Ставка должна быть меньше банка.')
+            if not self.check_balance(bid=bid):
+                # надо возвращать к вводу ставки,а не выходить
                 break
 
             # Раздача карт
@@ -151,7 +163,6 @@ class Game:
                 action = input('Ваш ход, будете брать ещё карту? (hit/stand/+/-): ').lower()
                 if action in ('hit', '+'):
                     self.player.hit(deck=self.deck)
-                    print(f'Ваша рука: {self.player.hand}')
                 elif action in ('stand', '-'):
                     self.player.stand()
                     break
@@ -165,17 +176,13 @@ class Game:
                 print(f'Рука дилера: {self.dealer.hand}')
 
             # Считаем результаты
-            x = self.calculate_result(sum_player=self.player.hand.value_deck, sum_dealer=self.dealer.hand.value_deck)
-            if x == 1:
-                players_bank += bid
-            elif x == 2:
-                continue
-            else:
-                players_bank -= bid
+            self.calculate_result(bid=bid)
 
-            print(f'Ваш банк = {players_bank}')
+            print(f'Ваш банк = {self.player.player_balance}')
             question = input('Сыграть ещё раз? (+/-/Yes/No): ')
             if question in ('+', 'Yes'):
+                self.player.clear_hand()
+                self.dealer.clear_hand()
                 is_play_again = True
             else:
                 is_play_again = False
