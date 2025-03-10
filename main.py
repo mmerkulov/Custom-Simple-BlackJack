@@ -1,7 +1,6 @@
 import random
 import logging
 
-
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
@@ -74,10 +73,10 @@ class Hand:
 
 class Player:
 
-    def __init__(self, name: str, balance: int = 0):
+    def __init__(self, name: str):
         self.name: str = name
         self.hand: Hand = Hand()
-        self.balance: int = balance
+        self.balance: int = 0
         self.bet: int = 0
 
     def hit(self, deck: Deck) -> None:
@@ -107,10 +106,9 @@ class Player:
 
     def place_bet(self):
         """Размещает ставку."""
-        bet = 0
-        while isinstance(bet, int):
-            amount = int(input('Введите ставку игры - '))
-            bet = self.check_valid_bet(amount=amount)
+        while True:
+            bet = self.check_valid_bet(amount=int(input('Введите ставку игры = ')))
+            break
         self.balance -= bet
         self.bet = bet
         logger.info(f"{self.name} делает ставку: {bet}")
@@ -120,7 +118,6 @@ class Player:
 
         :return: None
         """
-        print(f'{self.name} stand with {self.hand.calculate_hand()} points and on hand - {self.hand.cards}.')
         logger.info(f'{self.name} stand with {self.hand.calculate_hand()} points and on hand - {self.hand.cards}.')
 
     def clear_hand(self) -> None:
@@ -141,15 +138,23 @@ class Player:
             self.bet *= 2
             self.hit(deck=deck)
 
+    def add_balance_player(self) -> None:
+        self.balance = int(input('Введите баланс игрока = '))
+
 
 class Dealer(Player):
     def __init__(self):
         super().__init__('Dealer')
 
     def dealer_play(self, deck: Deck) -> None:
+        """Сдать карты дилеру
+
+        :param deck: текущая колода
+        :return: None
+        """
         while self.hand.calculate_hand() < 17:
             self.hit(deck=deck)
-            print(f'Рука дилера => {self.hand.calculate_hand()}')
+            logger.info(f'Рука дилера {self.hand.calculate_hand()}.')
 
 
 class Game:
@@ -159,26 +164,30 @@ class Game:
         self.player: Player = Player(name='Doro')
         self.dealer: Dealer = Dealer()
 
-    def calculate_result(self, bid: int) -> None:
+    def calculate_result(self) -> None:
 
-        print(f'Счёт игрока - {self.player.hand.value_deck}')
-        print(f'Счёт дилера - {self.dealer.hand.value_deck}')
+        logger.info(f'Счёт игрока - {self.player.hand.value_deck}')
+        logger.info(f'Счёт дилера - {self.dealer.hand.value_deck}')
         if self.player.hand.value_deck > 21:
-            print('Player проиграл, сожалеем.')
+            logger.info(f'Игрок проиграл, сожалеем. Баланс = {self.player.balance}.')
         elif self.dealer.hand.value_deck > 21:
-            print('Dealer проиграл, поздравляем с победой.')
-            self.player.balance += bid
+            logger.info(f'Игрок победил, поздравляем, дилер перебрал карт. Результат: {self.player.hand.value_deck} > {self.dealer.hand.value_deck}. Баланс = {self.player.balance}.')
+            self.player.balance += self.player.bet
         elif self.player.hand.value_deck > self.dealer.hand.value_deck:
-            print(
-                f'Player победил, поздравляем, дилер проиграл. Результат: {self.player.hand.value_deck} > {self.dealer.hand.value_deck}')
-            self.player.balance += bid
+            logger.info(f'Игрок победил, поздравляем, дилер проиграл. Результат: {self.player.hand.value_deck} > {self.dealer.hand.value_deck}. Баланс = {self.player.balance}.')
+            self.player.balance += self.player.bet
         elif self.player.hand.value_deck == self.dealer.hand.value_deck:
-            print(f'Ничья! Результат: {self.player.hand.value_deck} = {self.dealer.hand.value_deck}')
+            logger.info(f'Ничья! Результат: {self.player.hand.value_deck} = {self.dealer.hand.value_deck}. Баланс = {self.player.balance}.')
         else:
-            print('Дилер победил! Сожалеем.')
+            logger.info(f'Дилер победил! Сожалеем. Баланс = {self.player.balance}.')
 
-    def check_balance(self, bid: int) -> bool:
-        return True if self.player.balance > bid else False
+    def check_balance(self, bet: int) -> bool:
+        """Проверка баланса
+
+        :param bet: ставка
+        :return: Bool
+        """
+        return True if self.player.balance > bet else False
 
     def clean_all_hands(self) -> None:
         """Очищаем все руки
@@ -188,10 +197,11 @@ class Game:
         self.player.clear_hand()
         self.dealer.clear_hand()
 
-    def play_blackjack(self):
-        print(f'!!!Black Jack!!!')
+    def play_blackjack(self) -> None:
+        logger.info('!!!Игра в BlackJack началась!!!')
 
-        self.player.balance = int(input('Какой у вас баланс на игру? '))
+        self.player.add_balance_player()
+
         is_play_again = True
         while self.player.balance > 0 and is_play_again:
             # Проверка, что игрок может играть на ставку:
@@ -215,19 +225,16 @@ class Game:
                     self.player.stand()
                     break
                 else:
-                    print(f'Команда не понятна, введите одну из следующих (mehr, enogh')
+                    logger.info('Команда не понятна, введите одну из следующих (mehr, enogh')
                     continue
 
             # Ход дилера
             self.dealer.dealer_play(deck=self.deck)
-            # while self.dealer.hand.value_deck < 17:
-            #     self.dealer.hit()
-            #     print(f'Рука дилера: {self.dealer.hand}')
 
             # Считаем результаты
-            self.calculate_result(bid=bet)
+            self.calculate_result()
 
-            print(f'Ваш банк = {self.player.balance}')
+#            print(f'Ваш банк = {self.player.balance}')
             question = input('Сыграть ещё раз? (+/-/Yes/No): ')
             if question in ('+', 'Yes'):
                 self.clean_all_hands()
