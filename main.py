@@ -34,7 +34,7 @@ class Deck:
         self.deck: list = [(s, c) for s in self.suit for c in self.card_set]
         self.shuffle_deck()
 
-    def shuffle_deck(self):
+    def shuffle_deck(self) -> None:
         random.shuffle(self.deck)
 
     def add_card(self):  # элемент списка
@@ -52,7 +52,7 @@ class Hand:
         self.cards: list = []
         self.value_deck: int = 0
 
-    def get_card(self, card):
+    def get_card(self, card: Card) -> None:
         self.cards.append(card)
         self.value_deck = self.calculate_hand()
 
@@ -78,6 +78,7 @@ class Player:
         self.hand: Hand = Hand()
         self.balance: int = 0
         self.bet: int = 0
+        self.status: str | None = None
 
     def hit(self, deck: Deck) -> None:
         """Игрок берёт одну карту
@@ -87,31 +88,29 @@ class Player:
         """
         self.hand.get_card(deck.add_card())
 
-    def check_valid_bet(self, amount: int) -> int:
+    def check_valid_bet(self) -> int:
         """Сделать ставку
 
-        :param amount: ставка
         :return: None
         """
         while True:
+            amount = int(input('Введите ставку игры = '))
             try:
                 if amount < 0:
-                    logger.info('Ставка должна быть больше 0')
+                    logger.info('Ставка должна быть больше 0.')
                 elif amount > self.balance:
-                    logger.info('Недостаточно средств для того, что бы сделать ставку')
+                    logger.info('Недостаточно средств для того, что бы сделать ставку.')
                 else:
                     return amount
             except ValueError:
-                logger.error(f'Введено не корректное значение {amount}')
+                logger.error(f'Введено не корректное значение {amount}.')
 
     def place_bet(self):
         """Размещает ставку."""
-        while True:
-            bet = self.check_valid_bet(amount=int(input('Введите ставку игры = ')))
-            break
+        bet = self.check_valid_bet()
         self.balance -= bet
         self.bet = bet
-        logger.info(f"{self.name} делает ставку: {bet}")
+        logger.info(f"{self.name} делает ставку: {bet}.")
 
     def stand(self) -> None:
         """Игрок больше не берёт карт, остановился
@@ -141,6 +140,21 @@ class Player:
     def add_balance_player(self) -> None:
         self.balance = int(input('Введите баланс игрока = '))
 
+    def action_player(self, deck: Deck) -> None:
+        while self.hand.value_deck < 21:
+            logger.info(f'Ваша рука: {self.hand}.')
+            action = input('Ваш ход, будете брать ещё карту? (hit/stand/+/-/double/*): ').lower()
+            if action in ('hit', '+'):
+                self.hit(deck=deck)
+            elif action in ('double', '*'):
+                self.double_down(deck=deck)
+            elif action in ('stand', '-'):
+                self.stand()
+                break
+            else:
+                logger.info('Команда не понятна, введите одну из следующих (mehr, enogh).')
+                continue
+
 
 class Dealer(Player):
     def __init__(self):
@@ -157,6 +171,12 @@ class Dealer(Player):
             logger.info(f'Рука дилера {self.hand.calculate_hand()}.')
 
 
+class Table:
+    def __init__(self, table_num: str, players: list):
+        self.table_num: str = table_num
+        self.players: list = players
+
+
 class Game:
 
     def __init__(self):
@@ -165,17 +185,19 @@ class Game:
         self.dealer: Dealer = Dealer()
 
     def calculate_result(self) -> None:
-
-        logger.info(f'Счёт игрока - {self.player.hand.value_deck}')
-        logger.info(f'Счёт дилера - {self.dealer.hand.value_deck}')
+        logger.info(f'Счёт игрока = {self.player.hand.value_deck}.')
+        logger.info(f'Счёт дилера = {self.dealer.hand.value_deck}.')
         if self.player.hand.value_deck > 21:
+            # self.player.balance -= self.player.bet
             logger.info(f'Игрок проиграл, сожалеем. Баланс = {self.player.balance}.')
         elif self.dealer.hand.value_deck > 21:
-            logger.info(f'Игрок победил, поздравляем, дилер перебрал карт. Результат: {self.player.hand.value_deck} > {self.dealer.hand.value_deck}. Баланс = {self.player.balance}.')
+            logger.info(
+                f'Игрок победил, поздравляем, дилер перебрал карт. Результат: {self.player.hand.value_deck} > {self.dealer.hand.value_deck}. Баланс = {self.player.balance}.')
             self.player.balance += self.player.bet
         elif self.player.hand.value_deck > self.dealer.hand.value_deck:
-            logger.info(f'Игрок победил, поздравляем, дилер проиграл. Результат: {self.player.hand.value_deck} > {self.dealer.hand.value_deck}. Баланс = {self.player.balance}.')
             self.player.balance += self.player.bet
+            logger.info(
+                f'Игрок победил, поздравляем, дилер проиграл. Результат: {self.player.hand.value_deck} > {self.dealer.hand.value_deck}. Баланс = {self.player.balance}.')
         elif self.player.hand.value_deck == self.dealer.hand.value_deck:
             logger.info(f'Ничья! Результат: {self.player.hand.value_deck} = {self.dealer.hand.value_deck}. Баланс = {self.player.balance}.')
         else:
@@ -214,19 +236,7 @@ class Game:
             self.dealer.hit(deck=self.deck)
 
             # Ход игрока
-            while self.player.hand.value_deck < 21:
-                print(f'Ваша рука: {self.player.hand}')
-                action = input('Ваш ход, будете брать ещё карту? (hit/stand/+/-/double/*): ').lower()
-                if action in ('hit', '+'):
-                    self.player.hit(deck=self.deck)
-                elif action in ('double', '*'):
-                    self.player.double_down(deck=self.deck)
-                elif action in ('stand', '-'):
-                    self.player.stand()
-                    break
-                else:
-                    logger.info('Команда не понятна, введите одну из следующих (mehr, enogh')
-                    continue
+            self.player.action_player(deck=self.deck)
 
             # Ход дилера
             self.dealer.dealer_play(deck=self.deck)
@@ -234,41 +244,12 @@ class Game:
             # Считаем результаты
             self.calculate_result()
 
-#            print(f'Ваш банк = {self.player.balance}')
             question = input('Сыграть ещё раз? (+/-/Yes/No): ')
             if question in ('+', 'Yes'):
                 self.clean_all_hands()
                 is_play_again = True
             else:
                 is_play_again = False
-
-
-# def give_up():
-#     # сдаться
-#     pass
-#
-#
-# def split_hand():
-#     # сплит карт, доступно, если у игрока две одинаковые карты
-#     pass
-#
-#
-# def doubling_down():
-#     # удвоить ставку
-#     pass
-#
-#
-# def insurance():
-#     # страховка
-#     pass
-#
-#
-# def enough(player):
-#     # хватит брать карты
-#     pass
-
-
-# play_blackjack()
 
 
 if __name__ == '__main__':
